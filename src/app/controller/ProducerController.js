@@ -1,52 +1,59 @@
 class ProducerController {
   index(req, res) {
-    const producers = req.Movies.map(s => s.producers).filter(
-      (value, index, self) => {
-        return self.indexOf(value) === index;
-      }
-    );
+    const winners = [];
 
-    const intervalResult = [];
-
-    producers.forEach(producer => {
-      const Movies = req.Movies.filter(
-        m => m.producers === producer && m.winner.length !== 0
-      );
-
-      if (Movies.length >= 2) {
-        let Years = Movies.map(m => parseInt(m.year, 10));
-        const followingWin = Years.reduce((a, b) => Math.max(a, b));
-        Years = Years.filter(m => m !== followingWin);
+    req.Movies.filter(x => x.winner.length !== 0).forEach(movies => {
+      movies.winner.forEach(winner => {
+        const winnerExist = winners.findIndex(x => x.name === winner);
+        if (winnerExist >= 0) {
+          winners[winnerExist].years.push(parseInt(movies.year, 10));
+        } else {
+          winners.push({
+            name: winner,
+            years: [parseInt(movies.year, 10)],
+          });
+        }
+      });
+    });
+    const winnersFinal = winners
+      .filter(x => x.years.length >= 2)
+      .map(winner => {
+        const followingWin = winner.years.reduce((a, b) => Math.max(a, b));
+        const Years = winner.years.filter(m => m !== followingWin);
         const previousWin =
           Years.length === 0
             ? followingWin
             : Years.reduce((a, b) => Math.max(a, b));
 
-        intervalResult.push({
-          producer,
+        return {
+          producer: winner.name,
           followingWin,
           previousWin,
           interval: followingWin - previousWin,
-        });
-      }
-    });
+          years: winner.years,
+        };
+      })
+      .filter(x => x.interval !== 0);
 
-    const min = intervalResult.reduce((a, b) => {
+    const minInterval = winnersFinal.reduce((a, b) => {
       if (b.interval === Math.min(a.interval, b.interval)) {
         return b;
       }
       return a;
-    });
-    const max = intervalResult.reduce((a, b) => {
+    }).interval;
+    const min = winnersFinal.filter(w => w.interval === minInterval).shift();
+
+    const maxInterval = winnersFinal.reduce((a, b) => {
       if (b.interval === Math.max(a.interval, b.interval)) {
         return b;
       }
       return a;
-    });
+    }).interval;
+    const max = winnersFinal.filter(w => w.interval === maxInterval).pop();
 
     return res.json({
-      min,
-      max,
+      min: [min],
+      max: [max],
     });
   }
 }
